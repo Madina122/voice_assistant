@@ -1,6 +1,8 @@
 import sounddevice as sd
 import torch
 import time
+import re
+import logging
 
 # константы голосов, поддерживаемых в silero
 SPEAKER_AIDAR   = "aidar"
@@ -15,6 +17,8 @@ DEVICE_CUDA   = "cuda"
 DEVICE_VULKAN = "vulkan"
 DEVICE_OPENGL = "opengl"
 DEVICE_OPENCL = "opencl"
+
+logging.basicConfig(level=logging.INFO)
 
 class TTS:
     def __init__(
@@ -34,18 +38,28 @@ class TTS:
 
         self.__SPEAKER__ = speaker
         self.__SAMPLERATE__ = samplerate
+
+    def clean_text(self, text: str) -> str:
+        cleaned_text = re.sub(r'[^\w\s]', '', text)
+        return cleaned_text
     
     def text2speech(self, text: str):
-        # генерируем аудио из текста
-        audio = self.__MODEL__.apply_tts(
-            text=text,               
-            speaker=self.__SPEAKER__,
-            sample_rate=self.__SAMPLERATE__, 
-            put_accent=True,
-            put_yo=True
-        )
+        cleaned_text = self.clean_text(text)
 
-        # проигрываем то что получилось
-        sd.play(audio, samplerate=self.__SAMPLERATE__)
-        time.sleep((len(audio)/self.__SAMPLERATE__))
-        sd.stop()
+        if not cleaned_text.strip():
+            return
+        try:
+            audio = self.__MODEL__.apply_tts(
+                text=text,               
+                speaker=self.__SPEAKER__,
+                sample_rate=self.__SAMPLERATE__, 
+                put_accent=True,
+                put_yo=True
+            )
+
+            # проигрываем то что получилось
+            sd.play(audio, samplerate=self.__SAMPLERATE__)
+            time.sleep((len(audio)/self.__SAMPLERATE__))
+            sd.stop()
+        except Exception as e:
+            logging.error(f"Ошибка в TTS: {e}")
